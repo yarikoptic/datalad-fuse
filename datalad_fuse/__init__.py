@@ -100,9 +100,11 @@ class FuseFS(Interface):
             args=("--backends",),
             doc=(
                 "Comma-separated list of backends to try for remote file"
-                " access, in priority order.  Available: remfile, fsspec."
-                "  Default: remfile,fsspec (remfile for HDF5 files,"
-                " fsspec for everything else)"
+                " access, in priority order.  Available: remfile, fsspec,"
+                " annex-get.  Default: remfile,fsspec (remfile streams HDF5"
+                " files, fsspec streams everything else; annex-get is opt-in"
+                " and fetches the whole file via `git annex get` first — see"
+                " https://github.com/con/talks/issues/4 for the use case)."
             ),
             constraints=EnsureStr() | EnsureNone(),
         ),

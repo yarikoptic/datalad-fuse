@@ -21,6 +21,7 @@ from datalad.support.annexrepo import AnnexRepo
 from datalad.utils import get_dataset_root
 import methodtools
 
+from .annex_get import AnnexGetBackend
 from .backends import DEFAULT_BACKENDS, Backend
 from .consts import CACHE_SIZE
 from .fsspec import FsspecBackend
@@ -74,6 +75,8 @@ def create_backends(
                 backends.append(FsspecBackend(path, caching))
             elif name == "remfile":
                 backends.append(RemfileBackend())
+            elif name == "annex-get":
+                backends.append(AnnexGetBackend())
             else:
                 raise ValueError(f"Unknown backend: {name!r}")
         except ImportError as e:
@@ -292,7 +295,9 @@ class DatasetAdapter:
                 "has" if fstate is FileState.HAS_CONTENT else "does not have",
             )
         if fstate is FileState.NO_CONTENT:
-            # Walk the backend chain; fall through to next backend on failure
+            # Walk the backend chain; fall through to the next backend on
+            # any exception.  Each backend's own .open() is responsible for
+            # whatever iteration it needs (URLs, single-shot get, etc.).
             last_error: Optional[Exception] = None
             for backend in self._backends:
                 if not backend.can_handle(key, mode):
@@ -305,38 +310,16 @@ class DatasetAdapter:
                     )
                     continue
                 lgr.debug("%s: opening via backend %s", relpath, backend.name)
-                for url in self.get_urls(str(key)):
-                    try:
-                        lgr.debug(
-                            "%s: trying URL %s (backend=%s)",
-                            relpath,
-                            url,
-                            backend.name,
-                        )
-                        return backend.open_url(url, mode, **kwargs)
-                    except FileNotFoundError as e:
-                        lgr.debug(
-                            "Failed to open %s at URL %s: %s",
-                            relpath,
-                            url,
-                            str(e),
-                        )
-                        last_error = e
-                    except Exception as e:
-                        lgr.debug(
-                            "%s: backend %s failed at URL %s: %s",
-                            relpath,
-                            backend.name,
-                            url,
-                            e,
-                        )
-                        last_error = e
-                # All URLs failed for this backend — try the next one
-                lgr.debug(
-                    "%s: backend %s exhausted all URLs, trying next",
-                    relpath,
-                    backend.name,
-                )
+                try:
+                    return backend.open(self, relpath, key, mode, **kwargs)
+                except Exception as e:
+                    lgr.debug(
+                        "%s: backend %s failed: %s",
+                        relpath,
+                        backend.name,
+                        e,
+                    )
+                    last_error = e
             # No backend succeeded
             raise IOError(
                 f"Could not open {relpath} within {self.path}"

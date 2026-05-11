@@ -68,8 +68,8 @@ class FsspecHead(Interface):
             args=("--backends",),
             doc=(
                 "Comma-separated list of backends to try for remote file"
-                " access, in priority order.  Available: remfile, fsspec."
-                "  Default: remfile,fsspec"
+                " access, in priority order.  Available: remfile, fsspec,"
+                " annex-get.  Default: remfile,fsspec"
             ),
             constraints=EnsureStr() | EnsureNone(),
         ),
