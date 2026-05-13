@@ -66,3 +66,13 @@ class Backend(ABC):
 
     def clear(self) -> None:  # noqa: B027
         """Clear any caches held by this backend.  Default: no-op."""
+
+    def close(self, adapter: "DatasetAdapter") -> None:  # noqa: B027, U100
+        """Release backend resources / perform per-session cleanup.
+
+        Called from :meth:`DatasetAdapter.close` for every backend in the
+        chain.  Default: no-op.  Backends that have session-scoped state
+        (e.g. an annex-get backend that should drop fetched content on exit)
+        override this.  *adapter* is passed so callbacks can reach the
+        annex / dataset path without holding their own reference.
+        """

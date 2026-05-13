@@ -76,7 +76,13 @@ def create_backends(
             elif name == "remfile":
                 backends.append(RemfileBackend())
             elif name == "annex-get":
-                backends.append(AnnexGetBackend())
+                # Drop-on-close knobs are read from datalad config so the
+                # `--backends=annex-get` spec stays free of inline options.
+                drop = cfg.get("datalad.fusefs.annex-get.drop", "none")
+                drop_mode = cfg.get("datalad.fusefs.annex-get.drop-mode", "regular")
+                backends.append(
+                    AnnexGetBackend(drop=str(drop), drop_mode=str(drop_mode))
+                )
             else:
                 raise ValueError(f"Unknown backend: {name!r}")
         except ImportError as e:
@@ -167,6 +173,13 @@ class DatasetAdapter:
         self._backends = create_backends(spec, path, caching, explicit=explicit)
 
     def close(self) -> None:
+        for backend in self._backends:
+            try:
+                backend.close(self)
+            except Exception as e:
+                lgr.warning(
+                    "Backend %s close() failed: %s", backend.name, e, exc_info=True
+                )
         if self.annex is not None:
             self.annex._batched.clear()
 
